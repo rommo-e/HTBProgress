@@ -54,4 +54,37 @@ whatweb http://redpanda.htb:8080/
 
 ### Browsing the site 
 
-If we already finished to scan 
+If we already finished to scan the open ports now we can navigate to the site , we firs see a big picture of a red panda and below we can see a navigation bar. 
+Nothing comes back when we use our tool Wappalyzer , no technologies are found just a common site. 
+
+But the result is not the common one since we search common words and nohting appear until we just click on the search icon without typing any word. 
+Then we start to search for code or see if we can execute javascript from the bar .
+
+
+In this case now we can see a clue about injection attacks
+
+### Find new paths
+So since we only have access to the search bar the first thing that comes to mind is to look out for extra hidden pages in the web page , this can be done with wfuzz or gobuster. 
+This is going to help us to gather more information that can be obtained from these hidden pages.
+
+The first alternative is wfuzz and to look out for these paths we would need to use 
+`<bash>
+$wfuzz -c -t 200 --hc=404 -w /usr/share/wordlists/dirb/dirbuster/directory-list-lowercase-2.3-medium.txt http://redpanda.htb:8080/FUZZ
+`
+
+Similarly with gobuster 
+
+`<bash>
+$ gobuster dir --url http://{target_IP}/ --wordlist /usr/share/wordlists/dirbuster/directory-list-2.3-small.txt -x php,html
+`
+
+Whichever is the tool we chosed to use we can get a name about a path that is called /stats
+
+Within this directory we can now find names about the authors of the site  and we are allowed to export the data about their images and results on the site. 
+
+
+### First memo 
+
+So far so good we have been able to find hidden sites that provided us with information about the authors and stats, we have a clue about what could we do in the site making an injection attack but the most considerable clue that we have is the Spring Bot label about how the site was made. 
+
+We can now search for exploits for this bot
