@@ -16,7 +16,7 @@ and the domain is redpanda.htb
 Rather than connecting inmediatly we can comprobate the connection sending 1 ping , this is for practical purposes since ping will continue until we stop the process , for ping 1 time run the next command on the terminal after adding the IP address with its respective domain. 
 
 `<bash>
-$ping -c 1 redpanda.htb
+$ping -c1 redpanda.htb
 #the -c option is for count
 `
 
